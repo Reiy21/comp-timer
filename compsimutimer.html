@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Climbing Competition Timer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            transition: background-color 0.3s ease;
+        }
+        #timer {
+            font-size: 30vw; /* Huge font size */
+            font-weight: bold; /* Bold font */
+            color: white;
+            margin: 0;
+            line-height: 1.2;
+            text-align: center;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 1.5rem;
+            color: white;
+            background: #000000; /* Black background */
+            border: none;
+            cursor: pointer;
+            border-radius: 10px;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+        .red {
+            background-color: #ff0000; /* Red for 15-second intervals */
+        }
+        .green {
+            background-color: #00aa00; /* Green for 5-minute countdown */
+        }
+    </style>
+</head>
+<body class="red">
+    <div id="timer">0:15</div> <!-- Start directly with 15 seconds -->
+    <button id="start-btn" onclick="startTimer()">Start Timer</button>
+    <button id="restart-btn" onclick="restartTimer()" style="display:none;">Restart Timer</button> <!-- Restart button -->
+
+    <script>
+        let phase1Time = 15; // 15-second countdown
+        let phase2Time = 300; // 5-minute countdown (300 seconds)
+        let timerRunning = false; // Track if the timer is running
+        let timerInterval; // To store the interval ID for stopping the timer
+
+        const timerDisplay = document.getElementById('timer');
+        const startButton = document.getElementById('start-btn');
+        const restartButton = document.getElementById('restart-btn');
+        const body = document.body;
+
+        let beepSound; // Define the audio context globally
+
+        // Initialize the audio context on user interaction
+        function initializeAudio() {
+            beepSound = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // Create beep function
+        function playBeep(frequency = 1000, duration = 0.1) {
+            if (!beepSound) {
+                console.warn("Audio context is not initialized.");
+                return;
+            }
+            const oscillator = beepSound.createOscillator();
+            oscillator.type = 'sine'; // Simple sine wave beep
+            oscillator.frequency.setValueAtTime(frequency, beepSound.currentTime); // Frequency (1000 Hz by default)
+            oscillator.connect(beepSound.destination);
+            oscillator.start();
+            oscillator.stop(beepSound.currentTime + duration); // Custom duration
+        }
+
+        // Update display function
+        function updateDisplay(timeInSeconds, backgroundColorClass) {
+            const minutes = Math.floor(timeInSeconds / 60);
+            const seconds = timeInSeconds % 60;
+
+            // Display time in correct format (e.g., 5:00, 4:59) but with 0:15 format
+            const displayTime = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            timerDisplay.textContent = displayTime;
+            body.className = backgroundColorClass;
+        }
+
+        // Phase function (either 15 seconds or 5 minutes)
+        function startPhase(duration, backgroundColorClass, onComplete) {
+            let timeLeft = duration;
+
+            updateDisplay(timeLeft, backgroundColorClass); // Initialize with current phase display
+
+            function updateTimer() {
+                // Trigger short beeps for the last 5 seconds of both phases
+                if (backgroundColorClass === "red" || backgroundColorClass === "green") { 
+                    if (timeLeft === 6 || timeLeft === 5 || timeLeft === 4 || timeLeft === 3 || timeLeft === 2) {
+                        playBeep(); // Short beep for 5, 4, 3, 2 seconds
+                    }
+                }
+
+                // Add a long, low-pitched beep at 1-minute mark in the green phase
+                if (timeLeft === 60 && backgroundColorClass === "green") {
+                    playBeep(500, 0.6); // Long, low-pitched beep at 1 minute (500 Hz)
+                }
+
+                timeLeft--; // Decrease timeLeft after beeps are handled
+
+                // Add a long beep at 0:00 for both phases and transition directly to the next phase
+                if (timeLeft === 0) {
+                    playBeep(1500, 0.6); // Long beep at 0:00
+                    setTimeout(() => { // Transition to the next phase
+                        onComplete();
+                    }, 600); // Ensure the long beep is heard
+                    return;
+                }
+
+                // Update the timer display every second
+                updateDisplay(timeLeft, backgroundColorClass);
+
+                // Call updateTimer again after 1 second
+                timerInterval = setTimeout(updateTimer, 1000);
+            }
+
+            // Start the countdown
+            timerInterval = setTimeout(updateTimer, 1000);
+        }
+
+        // Function to start the entire timer sequence
+        function startTimer() {
+            if (timerRunning) return; // Prevent restarting if the timer is already running
+            timerRunning = true; // Mark timer as running
+            startButton.style.display = "none"; // Hide Start button
+            restartButton.style.display = "block"; // Show Restart button immediately
+            initializeAudio(); // Ensure audio context is initialized
+            
+            // Start with phase 1 (15 seconds)
+            runTimerCycle();
+        }
+
+        // The function that runs the infinite timer cycle
+        function runTimerCycle() {
+            startPhase(phase1Time, "red", () => {
+                startPhase(phase2Time, "green", () => {
+                    runTimerCycle(); // Recursively call to restart the cycle
+                });
+            });
+        }
+
+        // Function to restart the timer at any point
+        function restartTimer() {
+            clearTimeout(timerInterval); // Clear the existing timeout interval
+            timerRunning = false; // Set timerRunning to false
+
+            // Reset timer and phase
+            phase1Time = 15;
+            phase2Time = 300; // Set phase2Time back to 5 minutes
+            timerDisplay.textContent = '0:15';
+            body.className = "red"; // Set the background back to red
+
+            // Keep Restart button visible and reset the cycle
+            runTimerCycle(); // Restart the timer cycle
+        }
+    </script>
+</body>
+</html>
